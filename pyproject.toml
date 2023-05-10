@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "strawberry-azure-auth"
+version = "0.0.0"
+description = "Azure AD authentication for Strawberry GraphQL"
+authors = ["skarre-r <skarre-r@protonmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "strawberry_azure_auth"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = "^0.24.0"
+pyjwt = { version = "^2.7.0", extras = ["crypto"] }
+strawberry-graphql = { version = "^0.177.1", extras = ["channels"] }
+strawberry-graphql-django = "^0.9.4"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.0.265"
+mypy = "^1.2.0"
+black = "^23.3.0"
+pre-commit = "^3.3.1"
+ipython = "^8.13.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.black]
+target-version = ["py311"]
+line-length = 120
+
+[tool.mypy]
+python_version = "3.11"
+plugins = "strawberry.ext.mypy_plugin"
