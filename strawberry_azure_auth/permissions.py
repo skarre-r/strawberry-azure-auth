@@ -23,7 +23,7 @@ class RoleBasedPermission(BasePermission):
     message: str
     roles: list[str]
 
-    async def has_permission(self, source: Any, info: Info[Any], **kwargs: Any) -> bool:
+    async def has_permission(self, source: Any, info: Info, **kwargs: Any) -> bool:
         if not info.context.authorized:
             self.message = "Unauthorized"
             if hasattr(info.context, "response"):
