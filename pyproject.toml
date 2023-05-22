@@ -5,6 +5,7 @@ description = "Azure AD authentication for Strawberry GraphQL"
 authors = ["skarre-r <skarre-r@protonmail.com>"]
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/skarre-r/strawberry-azure-auth"
 packages = [{include = "strawberry_azure_auth"}]
 
 [tool.poetry.dependencies]
