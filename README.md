@@ -7,7 +7,7 @@ inspired by [fastapi-azure-auth](https://github.com/Intility/fastapi-azure-auth)
 
 * Single-tenant only
 * V2 access tokens only
-* Support is limited to on django + channels
+* Support is limited to django + channels
 
 ## Installation
 
