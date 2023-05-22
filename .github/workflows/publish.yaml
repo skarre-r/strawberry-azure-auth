@@ -1,0 +1,22 @@
+name: "Publish to PyPi"
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  publish:
+    name: "Publish"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.5.0
+      - run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry publish --build --no-interaction
