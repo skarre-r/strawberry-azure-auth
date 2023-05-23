@@ -51,7 +51,8 @@ class AzureAuthExtension(SchemaExtension):
         roles: list[str] | None = None,
         enable_caching: bool = False,
         allow_introspection: bool = True,
-        allow_unauthorized_operations: bool = False,
+        allow_unauthenticated: bool = False,
+        allow_unauthorized: bool = False,
         execution_context: ExecutionContext | None = None,
     ) -> None:
         """
@@ -67,12 +68,21 @@ class AzureAuthExtension(SchemaExtension):
         :param enable_caching: Whether to cache the OpenID configuration using Django's built-in cache framework or not.
             Useful during development to avoid re-fetching the OpenID document every time the application restarts.
             Off by default.
-        :param allow_introspection: Whether to allow unauthenticated 'introspection queries' or not.
+        :param allow_introspection: Whether to allow introspection queries or not.
             Enabled by default.
-        :param allow_unauthorized_operations: Whether to 'allow' unauthorized requests or not.
-            By default, all unauthorized operations will be stopped before they're executed.
-            If you have any operations that should not require authentication, set this to `True`.
-            Permission classes will still handle authorization on operations where they're configured.
+        :param allow_unauthenticated: Whether to allow unauthenticated requests or not.
+            By default, all unauthenticated requests will be stopped before they're executed.
+            Settings this to `True` will let those requests through, leaving it up to the permission classes to
+            allow or block operations.
+            Useful if you have *any* operations that should not require authentication.
+            WARNING: Using this in conjunction with the 'allow_unauthorized' flag
+            will disable the authentication completely!
+        :param allow_unauthorized: Whether to allow unauthorized requests or not.
+            By default, all unauthorized requests will be stopped by the extension (when using the 'roles' flag)
+            or by any permission classes that inherit from
+            the :class:`RoleBasedPermission<strawberry_azure_auth.permissions.RoleBasedPermission>` class.
+            WARNING: Settings this to `True` will disable the permission handling, and
+            using it in conjunction with the 'allow_unauthenticated' flag will disable the authentication completely!
         """
         super().__init__(execution_context=execution_context)  # type: ignore[arg-type]
         self._client_id: str = client_id
@@ -80,7 +90,8 @@ class AzureAuthExtension(SchemaExtension):
         self._scopes: list[str] = scopes.split(" ") if isinstance(scopes, str) else scopes
         self._roles: list[str] | None = roles
         self._allow_introspection: bool = allow_introspection
-        self._allow_unauthorized: bool = allow_unauthorized_operations
+        self._allow_unauthenticated: bool = allow_unauthenticated
+        self._allow_unauthorized: bool = allow_unauthorized
         self._openid: OpenIDConfig = OpenIDConfig(
             client_id=client_id, tenant_id=tenant_id, enable_caching=enable_caching
         )
@@ -90,6 +101,9 @@ class AzureAuthExtension(SchemaExtension):
         Hook that runs at the start/ end of every request/ operation:
         Authenticate incoming requests by validating the provided access tokens.
         """
+        self.execution_context.context._handle_authentication = not self._allow_unauthenticated
+        self.execution_context.context._handle_authorization = not self._allow_unauthorized
+
         if not self.execution_context.context.authorized and (
             access_token := self.execution_context.context.access_token
         ):
@@ -110,26 +124,27 @@ class AzureAuthExtension(SchemaExtension):
         """
         Hook that runs before / after the 'GraphQL execution step':
         Stop the execution of unauthorized requests by manually setting the execution result.
-        This behaviour can be controlled using the 'roles', 'allow_introspection', and 'allow_unauthorized_operations'
-        parameters.
+        This behaviour can be controlled using the 'roles', 'allow_introspection', 'allow_unauthenticated',
+        and 'allow_unauthorized' parameters.
         """
-        if not self._allow_unauthorized and not bool(
+        if not bool(
             self._allow_introspection
             and is_introspection_query(graphql_document=self.execution_context.graphql_document)
         ):
-            if not self.execution_context.context.authorized:
+            if not self._allow_unauthenticated and not self.execution_context.context.authorized:
                 self.execution_context.result = ExecutionResult(
                     data=None, errors=[GraphQLError(message="Unauthorized")]
                 )
-                if hasattr(self.execution_context.context, "response"):  # http
+                if hasattr(self.execution_context.context, "response"):  # django http
                     self.execution_context.context.response.status_code = 401
             elif (
-                self.execution_context.context.authorized
+                not self._allow_unauthorized
+                and self.execution_context.context.authorized
                 and self._roles
                 and not any(role in self._roles for role in self.execution_context.context.roles)
             ):
                 self.execution_context.result = ExecutionResult(data=None, errors=[GraphQLError(message="Forbidden")])
-                if hasattr(self.execution_context.context, "response"):  # http
+                if hasattr(self.execution_context.context, "response"):  # django http
                     self.execution_context.context.response.status_code = 403
         yield
 

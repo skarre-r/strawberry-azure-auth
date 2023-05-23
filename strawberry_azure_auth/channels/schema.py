@@ -23,7 +23,7 @@ from graphql import (
 
 from .context import ChannelsExecutionContext
 
-logger: logging.Logger = logging.getLogger(name="strawberry.auth")
+logger: logging.Logger = logging.getLogger(name="strawberry.execution")
 
 
 async def _subscribe(

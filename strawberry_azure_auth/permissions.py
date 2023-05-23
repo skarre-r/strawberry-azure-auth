@@ -24,12 +24,12 @@ class RoleBasedPermission(BasePermission):
     roles: list[str]
 
     async def has_permission(self, source: Any, info: Info, **kwargs: Any) -> bool:
-        if not info.context.authorized:
+        if info.context._handle_authentication and not info.context.authorized:
             self.message = "Unauthorized"
             if hasattr(info.context, "response"):
                 info.context.response.status_code = 401
             return False
-        if not any(role in info.context.roles for role in self.roles):
+        if info.context._handle_authorization and not any(role in info.context.roles for role in self.roles):
             self.message = "Forbidden"
             if hasattr(info.context, "response"):
                 info.context.response.status_code = 403

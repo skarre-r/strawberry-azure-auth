@@ -3,16 +3,19 @@ from __future__ import annotations
 __all__ = ["DjangoContext", "DjangoExecutionContext"]
 
 
-from dataclasses import dataclass
+import dataclasses
 from strawberry.django.context import StrawberryDjangoContext
 from strawberry.types.execution import ExecutionContext
 
 
-@dataclass
+@dataclasses.dataclass
 class DjangoContext(StrawberryDjangoContext):
     upn: str | None = None
-    roles: list[str] = list  # type: ignore[assignment]
+    roles: list[str] = dataclasses.field(default_factory=list)
     authorized: bool = False
+
+    _handle_authentication: bool = True
+    _handle_authorization: bool = True
 
     @property
     def access_token(self) -> str | None:
