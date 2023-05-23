@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "strawberry-azure-auth"
-version = "1.0.0"
+version = "1.1.0"
 description = "Azure AD authentication for Strawberry GraphQL"
 authors = ["skarre-r <skarre-r@protonmail.com>"]
 license = "MIT"
