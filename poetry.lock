@@ -1000,14 +1000,14 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "strawberry-graphql"
-version = "0.177.3"
+version = "0.178.0"
 description = "A library for creating GraphQL APIs"
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "strawberry_graphql-0.177.3-py3-none-any.whl", hash = "sha256:eab39f235b9e42c05ad372e74aaa2cdd1d27c64dd702a10dcd82e253de8caf72"},
-    {file = "strawberry_graphql-0.177.3.tar.gz", hash = "sha256:0421ad86d867047d3af90f225ae57166d62802457e3c65ff10b17a3af0cd3911"},
+    {file = "strawberry_graphql-0.178.0-py3-none-any.whl", hash = "sha256:d32eb4a8dedae7afd8e59adaaef844c4c9263627a4c71161b130d8a44c6ae8f2"},
+    {file = "strawberry_graphql-0.178.0.tar.gz", hash = "sha256:c2cbd8b5b31dd643e5bbc510e19869a1dce9a8e0321973319b403999f10dcf5b"},
 ]
 
 [package.dependencies]
@@ -1122,10 +1122,11 @@ category = "dev"
 optional = false
 python-versions = "*"
 files = [
+    {file = "wcwidth-0.2.6-py2.py3-none-any.whl", hash = "sha256:795b138f6875577cd91bba52baf9e445cd5118fd32723b460e30a0af30ea230e"},
     {file = "wcwidth-0.2.6.tar.gz", hash = "sha256:a5220780a404dbe3353789870978e472cfe477761f06ee55077256e509b156d0"},
 ]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "ec5235cfbb6ef2da1756d9812db855af4912926be2e5c17cde30cd22fea559c0"
+content-hash = "a067624fce9c4e9ce81292983a1daaa91bbaa5f758b1a1251fcf8e5b887dffbe"
