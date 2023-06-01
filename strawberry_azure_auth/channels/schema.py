@@ -4,24 +4,30 @@ __all__ = ["Schema"]
 
 import logging
 import strawberry
-from typing import Any, AsyncIterable, AsyncGenerator, Callable
+from typing import Any, AsyncIterable, AsyncGenerator, Callable, Iterable, TYPE_CHECKING
+
 from strawberry.types.graphql import OperationType
 from strawberry.schema.execute import _run_validation, parse_document
-from strawberry.extensions import SchemaExtension
 from strawberry.extensions.runner import SchemaExtensionsRunner
 from strawberry.exceptions import MissingQueryError
 from strawberry.schema.exceptions import InvalidOperationTypeError
 from graphql import (
     ExecutionResult,
-    GraphQLSchema,
     GraphQLError,
-    DocumentNode,
-    GraphQLFieldResolver,
     parse,
     subscribe,
 )
 
 from .context import ChannelsExecutionContext
+
+if TYPE_CHECKING:
+    from strawberry.custom_scalar import ScalarWrapper, ScalarDefinition
+    from strawberry.directive import StrawberryDirective
+    from strawberry.schema.config import StrawberryConfig
+    from strawberry.type import StrawberryType
+    from strawberry.extensions import SchemaExtension
+    from graphql import GraphQLFieldResolver, DocumentNode, GraphQLSchema, ExecutionContext
+
 
 logger: logging.Logger = logging.getLogger(name="strawberry.execution")
 
@@ -133,6 +139,34 @@ class Schema(strawberry.Schema):
     Inspired by: https://github.com/strawberry-graphql/strawberry/issues/2097#issuecomment-1314812575
     """
 
+    def __init__(
+        self,
+        query: type,
+        mutation: type | None = None,
+        subscription: type | None = None,
+        directives: Iterable[StrawberryDirective] = (),
+        types: Iterable[type | StrawberryType] = (),
+        extensions: Iterable[type[SchemaExtension] | SchemaExtension] = (),
+        execution_context_class: type[ExecutionContext] | None = None,
+        config: StrawberryConfig | None = None,
+        scalar_overrides: dict[object, type | ScalarWrapper | ScalarDefinition] | None = None,
+        schema_directives: Iterable[object] = (),
+        debug: bool = False,
+    ) -> None:
+        self.debug: bool = debug
+        super().__init__(
+            query=query,
+            mutation=mutation,
+            subscription=subscription,
+            directives=directives,
+            types=types,
+            extensions=extensions,
+            execution_context_class=execution_context_class,
+            config=config,
+            scalar_overrides=scalar_overrides,
+            schema_directives=schema_directives,
+        )
+
     async def subscribe(
         self,
         query: str,
@@ -167,4 +201,7 @@ class Schema(strawberry.Schema):
         execution_context: ChannelsExecutionContext | None = None,  # type: ignore[override]
     ) -> None:
         for error in errors:
-            logger.error(error)
+            if self.debug:
+                logger.error(error, exc_info=error.original_error)
+            else:
+                logger.error(error)
