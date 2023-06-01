@@ -42,6 +42,7 @@ class AzureAuthExtension(SchemaExtension):
 
     execution_context: ExecutionContext
 
+    # TODO: rename the 'allow_unauthenticated' and 'allow_unauthorized' params
     def __init__(
         self,
         *,
