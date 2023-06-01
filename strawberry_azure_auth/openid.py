@@ -4,7 +4,6 @@ __all__ = ["OpenIDConfig"]
 
 import httpx
 import logging
-import contextlib
 from typing import Final, TypedDict
 from datetime import datetime, timedelta
 from jwt.algorithms import RSAAlgorithm
@@ -101,9 +100,9 @@ class OpenIDConfig:
 
     async def _load_openid_configuration(self) -> None:
         if self._use_cache:
-            with contextlib.suppress(Exception):
+            try:
                 cached_config: CacheValues
-                if cached_config := await cache.aget(KEY=CACHE_KEY):
+                if cached_config := await cache.aget(CACHE_KEY):
                     logger.debug("Using OpenID config from cache...")
                     self.issuer = cached_config["issuer"]
                     self.signing_keys = {
@@ -111,6 +110,8 @@ class OpenIDConfig:
                     }
                     self._last_update = datetime.fromisoformat(cached_config["dt"])
                     return
+            except Exception as exc:
+                logger.warning("Failed to use the cached OpenID config!", exc_info=exc)
 
         async with httpx.AsyncClient(timeout=10) as client:
             openid_url: str = (
@@ -140,14 +141,16 @@ class OpenIDConfig:
         self._last_update = datetime.now()
 
         if self._use_cache:
-            logger.debug("Updating OpenID config in cache...")
-            with contextlib.suppress(Exception):
+            logger.debug("Updating the OpenID cache...")
+            try:
                 value: CacheValues = {
                     "issuer": self.issuer,
                     "keys": {key: RSAAlgorithm.to_jwk(key_obj=value) for key, value in self.signing_keys.items()},
                     "dt": self._last_update.isoformat(),
                 }
                 await cache.aset(key=CACHE_KEY, value=value, timeout=60 * 60 * 24)
+            except Exception as exc:
+                logger.warning("Failed to update the OpenID cache!", exc_info=exc)
 
         logger.debug("OpenID config updated:")
         logger.debug("issuer: %s", self.issuer)
