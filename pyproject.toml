@@ -12,7 +12,7 @@ packages = [{include = "strawberry_azure_auth"}]
 python = "^3.11"
 httpx = "^0.24.1"
 pyjwt = { version = "^2.7.0", extras = ["crypto"] }
-strawberry-graphql = { version = "^0.177.3", extras = ["channels"] }
+strawberry-graphql = { version = "~0.179.0", extras = ["channels"] }
 strawberry-graphql-django = "^0.9.4"
 
 [tool.poetry.group.dev.dependencies]
