@@ -16,7 +16,7 @@ strawberry-graphql = { version = "~0.179.0", extras = ["channels"] }
 strawberry-graphql-django = "^0.9.4"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.0.270"
+ruff = ">=0.0.270,<0.0.273"
 mypy = "^1.3.0"
 black = "^23.3.0"
 pre-commit = "^3.3.1"
