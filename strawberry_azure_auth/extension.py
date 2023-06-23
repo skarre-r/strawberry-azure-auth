@@ -2,8 +2,8 @@ from __future__ import annotations
 
 __all__ = ["AzureAuthExtension"]
 
-
 import jwt
+import asyncio
 import logging
 import contextlib
 from uuid import UUID
@@ -34,77 +34,62 @@ class AzureAuthExtension(SchemaExtension):
         ...     extensions=[
         ...         AzureAuthExtension(
         ...             client_id=...,
-        ...             tenant_id=...,
-        ...             scopes=...
+        ...             tenant_id=...
         ...         )
         ...     ]
     """
 
     execution_context: ExecutionContext
 
-    # TODO: rename the 'allow_unauthenticated' and 'allow_unauthorized' params
     def __init__(
         self,
         *,
         client_id: str,
         tenant_id: str,
-        scopes: str | list[str],
+        scopes: str | list[str] | None = None,
         roles: list[str] | None = None,
         enable_caching: bool = False,
         allow_introspection: bool = True,
-        allow_unauthenticated: bool = False,
         allow_unauthorized: bool = False,
         execution_context: ExecutionContext | None = None,
     ) -> None:
         """
         :param client_id: Your Azure application's client ID.
         :param tenant_id: Your Azure tenant ID.
-        :param scopes: Scope(s) defined by your Azure application.
+        :param scopes: Optional scope(s) defined by your Azure application.
             The provided scopes are used to validate the 'scp' claim
             which means that all access tokens must include at least one of them.
         :param roles: Optional role(s) defined by your Azure application.
-            If any are provided, they will be used to validate the 'roles' claim
+            The provided roles are used to validate the 'roles' claim
             which means that all access tokens must include at least one of them.
-            Does nothing if the `allow_unauthorized_operations` param is set to `True`.
         :param enable_caching: Whether to cache the OpenID configuration using Django's built-in cache framework or not.
             Useful during development to avoid re-fetching the OpenID document every time the application restarts.
             Off by default.
-        :param allow_introspection: Whether to allow introspection queries or not.
+        :param allow_introspection: Whether to allow unauthenticated introspection queries or not.
             Enabled by default.
-        :param allow_unauthenticated: Whether to allow unauthenticated requests or not.
-            By default, all unauthenticated requests will be stopped before they're executed.
-            Settings this to `True` will let those requests through, leaving it up to the permission classes to
-            allow or block operations.
-            Useful if you have *any* operations that should not require authentication.
-            WARNING: Using this in conjunction with the 'allow_unauthorized' flag
-            will disable the authentication completely!
         :param allow_unauthorized: Whether to allow unauthorized requests or not.
-            By default, all unauthorized requests will be stopped by the extension (when using the 'roles' flag)
-            or by any permission classes that inherit from
-            the :class:`RoleBasedPermission<strawberry_azure_auth.permissions.RoleBasedPermission>` class.
-            WARNING: Settings this to `True` will disable the permission handling, and
-            using it in conjunction with the 'allow_unauthenticated' flag will disable the authentication completely!
+            By default, the extension stops all unauthorized requests before they're executed.
+            Set this to `True` to turn of this behavior.
+            Useful if you have *any* operations that should not require authentication.
         """
         super().__init__(execution_context=execution_context)  # type: ignore[arg-type]
         self._client_id: str = client_id
         self._tenant_id: str = tenant_id
-        self._scopes: list[str] = scopes.split(" ") if isinstance(scopes, str) else scopes
+        self._scopes: list[str] = scopes.split(" ") if isinstance(scopes, str) else scopes if scopes else []
         self._roles: list[str] | None = roles
         self._allow_introspection: bool = allow_introspection
-        self._allow_unauthenticated: bool = allow_unauthenticated
         self._allow_unauthorized: bool = allow_unauthorized
         self._openid: OpenIDConfig = OpenIDConfig(
             client_id=client_id, tenant_id=tenant_id, enable_caching=enable_caching
         )
+        with contextlib.suppress(Exception):
+            asyncio.run_coroutine_threadsafe(coro=self._openid.load_config(), loop=asyncio.get_event_loop())
 
     async def on_operation(self) -> AsyncIteratorOrIterator[None]:
         """
         Hook that runs at the start/ end of every request/ operation:
         Authenticate incoming requests by validating the provided access tokens.
         """
-        self.execution_context.context._handle_authentication = not self._allow_unauthenticated
-        self.execution_context.context._handle_authorization = not self._allow_unauthorized
-
         if not self.execution_context.context.authorized and (
             access_token := self.execution_context.context.access_token
         ):
@@ -125,28 +110,18 @@ class AzureAuthExtension(SchemaExtension):
         """
         Hook that runs before / after the 'GraphQL execution step':
         Stop the execution of unauthorized requests by manually setting the execution result.
-        This behaviour can be controlled using the 'roles', 'allow_introspection', 'allow_unauthenticated',
-        and 'allow_unauthorized' parameters.
+        This behavior can be controlled with the 'allow_introspection' and 'allow_unauthorized' parameters.
         """
         if not bool(
             self._allow_introspection
             and is_introspection_query(graphql_document=self.execution_context.graphql_document)
         ):
-            if not self._allow_unauthenticated and not self.execution_context.context.authorized:
+            if not self._allow_unauthorized and not self.execution_context.context.authorized:
                 self.execution_context.result = ExecutionResult(
                     data=None, errors=[GraphQLError(message="Unauthorized")]
                 )
-                if hasattr(self.execution_context.context, "response"):  # django http
+                if hasattr(self.execution_context.context, "response"):
                     self.execution_context.context.response.status_code = 401
-            elif (
-                not self._allow_unauthorized
-                and self.execution_context.context.authorized
-                and self._roles
-                and not any(role in self._roles for role in self.execution_context.context.roles)
-            ):
-                self.execution_context.result = ExecutionResult(data=None, errors=[GraphQLError(message="Forbidden")])
-                if hasattr(self.execution_context.context, "response"):  # django http
-                    self.execution_context.context.response.status_code = 403
         yield
 
     # region - Internal methods
@@ -191,13 +166,6 @@ class AzureAuthExtension(SchemaExtension):
         if not sub or not isinstance(sub, str):
             raise jwt.InvalidTokenError("Invalid 'sub' claim")
 
-        # scp: Scopes exposed by the application for which the client application has requested (and received) consent.
-        scp: str | None = claims.get("scp")
-        if not scp or not isinstance(scp, str):
-            raise jwt.InvalidTokenError("Invalid 'scp' claim")
-        if self._scopes and scp not in self._scopes:
-            raise jwt.InvalidTokenError("invalid 'scp' claim")
-
         # tid: The tenant ID (GUID) that the user is signing in to.
         tid: str | None = claims.get("tid")
         if not tid or not isinstance(tid, str) or tid != self._tenant_id:
@@ -221,5 +189,21 @@ class AzureAuthExtension(SchemaExtension):
         azp: str | None = claims.get("azp")
         if not azp or not isinstance(azp, str) or azp != self._client_id:
             raise jwt.InvalidTokenError("Invalid 'azp' claim")
+
+        # scp: Scopes exposed by the application for which the client application has requested (and received) consent.
+        if self._scopes:
+            scp: str | None = claims.get("scp")
+            if not scp or not isinstance(scp, str):
+                raise jwt.InvalidTokenError("Invalid 'scp' claim")
+            if scp not in self._scopes:
+                raise jwt.InvalidTokenError("invalid 'scp' claim")
+
+        # roles: Permissions exposed by the application that the requesting user has been given.
+        if self._roles:
+            roles: list[str] | None = claims.get("roles")
+            if not roles:
+                raise jwt.InvalidTokenError("Invalid 'roles' claim")
+            if not any(role in roles for role in self._roles):
+                raise jwt.InvalidTokenError("Invalid 'roles' claim")
 
     # endregion
