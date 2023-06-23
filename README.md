@@ -33,8 +33,7 @@ schema = strawberry.Schema(
     extensions=[
         AzureAuthExtension(  # <--
             client_id=...,
-            tenant_id=...,
-            scopes=...
+            tenant_id=...
         )
     ]
 )
@@ -60,8 +59,7 @@ schema = Schema(  # <--
     extensions=[
         AzureAuthExtension(  # <--
             client_id=...,
-            tenant_id=...,
-            scopes=...
+            tenant_id=...
         )
     ]
 )
@@ -129,7 +127,6 @@ schema = strawberry.Schema(
         AzureAuthExtension(
             client_id=...,
             tenant_id=...,
-            scopes=...,
             roles=["Example.Read"]  # <--
         )
     ]
