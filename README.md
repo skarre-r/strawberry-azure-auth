@@ -48,6 +48,8 @@ To make the authentication extension work with channels,
 this package comes with custom http/ websocket "graphql consumer" classes
 and a custom `Schema` class that provides extension support for subscriptions:
 
+> :warning: The `Schema` class will be removed in the future when Strawberry adds extension support for subscriptions!
+
 ```python
 # example/schema.py
 from strawberry_azure_auth import AzureAuthExtension  # <--
