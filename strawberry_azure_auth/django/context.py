@@ -14,15 +14,13 @@ class DjangoContext(StrawberryDjangoContext):
     roles: list[str] = dataclasses.field(default_factory=list)
     authorized: bool = False
 
-    _handle_authentication: bool = True
-    _handle_authorization: bool = True
-
     @property
     def access_token(self) -> str | None:
-        authorization_header: str | None = self.request.headers.get("Authorization")
-        if authorization_header and authorization_header.lower().startswith("bearer "):
-            _, access_token = authorization_header.split(" ")
-            return access_token
+        for header in ["authorization", "Authorization"]:
+            authorization_header: str | None = self.request.headers.get(header)
+            if authorization_header and authorization_header.lower().startswith("bearer "):
+                _, access_token = authorization_header.split(" ")
+                return access_token
         return None
 
 
