@@ -144,7 +144,7 @@ class Schema(strawberry.Schema):
         query: type,
         mutation: type | None = None,
         subscription: type | None = None,
-        directives: Iterable[StrawberryDirective] = (),
+        directives: Iterable[StrawberryDirective] = (),  # type: ignore[type-arg]
         types: Iterable[type | StrawberryType] = (),
         extensions: Iterable[type[SchemaExtension] | SchemaExtension] = (),
         execution_context_class: type[ExecutionContext] | None = None,
