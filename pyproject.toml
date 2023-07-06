@@ -12,8 +12,8 @@ packages = [{include = "strawberry_azure_auth"}]
 python = "^3.11"
 httpx = "^0.24.1"
 pyjwt = { version = "^2.7.0", extras = ["crypto"] }
-strawberry-graphql = { version = ">=0.187.4", extras = ["channels"] }
-strawberry-graphql-django = ">=0.9.5"
+strawberry-graphql = { version = ">=0.193.1", extras = ["channels"] }
+strawberry-graphql-django = ">=0.10.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.277"
