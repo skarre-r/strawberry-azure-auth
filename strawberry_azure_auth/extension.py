@@ -3,7 +3,6 @@ from __future__ import annotations
 __all__ = ["AzureAuthExtension"]
 
 import jwt
-import asyncio
 import logging
 import contextlib
 from uuid import UUID
@@ -79,11 +78,9 @@ class AzureAuthExtension(SchemaExtension):
         self._roles: list[str] | None = roles
         self._allow_introspection: bool = allow_introspection
         self._allow_unauthorized: bool = allow_unauthorized
-        self._openid: OpenIDConfig = OpenIDConfig(
+        self._openid_config: OpenIDConfig = OpenIDConfig(
             client_id=client_id, tenant_id=tenant_id, enable_caching=enable_caching
         )
-        with contextlib.suppress(Exception):
-            asyncio.run_coroutine_threadsafe(coro=self._openid.load_config(), loop=asyncio.get_event_loop())
 
     async def on_operation(self) -> AsyncIteratorOrIterator[None]:
         """
@@ -95,8 +92,11 @@ class AzureAuthExtension(SchemaExtension):
         ):
             header: dict[str, str] = jwt.get_unverified_header(jwt=access_token)
             if kid := header.get("kid"):
-                await self._openid.load_config()
-                if (issuer := self._openid.issuer) and (signing_key := self._openid.signing_keys.get(kid)):
+                if not self._openid_config.up_to_date:
+                    await self._openid_config.update()
+                if (issuer := self._openid_config.issuer) and (
+                    signing_key := self._openid_config.signing_keys.get(kid)
+                ):
                     with contextlib.suppress(Exception):
                         claims: dict[str, Any] = self._validate_token(
                             token=access_token, signing_key=signing_key, issuer=issuer
