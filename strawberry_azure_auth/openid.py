@@ -4,6 +4,7 @@ __all__ = ["OpenIDConfig"]
 
 import httpx
 import logging
+import asyncio
 from typing import Final, TypedDict
 from datetime import datetime, timedelta
 from jwt.algorithms import RSAAlgorithm
@@ -66,6 +67,10 @@ class JSONWebKeys(TypedDict):
 # endregion
 
 
+# Asyncio lock used to handle concurrent calls to the `OpenIDConfig.update()` method.
+update_lock = asyncio.Lock()
+
+
 class OpenIDConfig:
     def __init__(self, client_id: str, tenant_id: str, enable_caching: bool = False) -> None:
         """
@@ -90,13 +95,18 @@ class OpenIDConfig:
         expires: datetime = datetime.now() - timedelta(hours=24)
         return self._last_update > expires
 
-    async def load_config(self) -> None:
-        if bool(self.issuer and self.signing_keys and self.up_to_date):
-            return
-        try:
-            await self._load_openid_configuration()
-        except Exception as exc:
-            logger.error("Failed to update the OpenID configuration!", exc_info=exc)
+    async def update(self) -> None:
+        # lock the execution of this method to prevent multiple calls to the `_load_openid_configuration()` method:
+        # if multiple requests are made when the configuration is not up-to-date,
+        # the first one will update the config while the others will wait for the update to finish.
+        async with update_lock:
+            if bool(self.issuer and self.signing_keys and self.up_to_date):
+                return
+            try:
+                logger.info("Updating the OpenID configuration...")
+                await self._load_openid_configuration()
+            except Exception as exc:
+                logger.error("Failed to update the OpenID configuration!", exc_info=exc)
 
     async def _load_openid_configuration(self) -> None:
         if self._use_cache:
